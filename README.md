@@ -1,254 +1,187 @@
-# OpenHPA
+<h1 align="center">OpenHPA</h1>
 
-**Open-source HPA & KEDA tuning for Kubernetes.**
+<p align="center">
+  Open-source Kubernetes operator that tunes HPA and KEDA autoscaling.
+</p>
 
-OpenHPA analyzes how your Kubernetes HorizontalPodAutoscalers and KEDA ScaledObjects behave over
-time and recommends safer, more efficient autoscaling configuration — `minReplicas`, `maxReplicas`,
-CPU utilization targets, and scale-down/cooldown settings. Every recommendation is backed by
-measurable evidence from your own metrics, written as a Kubernetes custom resource you read with
-`kubectl`.
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a>
+  <a href="https://github.com/tonyschneider/openhpa/actions/workflows/ci.yml"><img src="https://github.com/tonyschneider/openhpa/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/tonyschneider/openhpa/releases"><img src="https://img.shields.io/github/v/release/tonyschneider/openhpa?sort=semver" alt="Release"></a>
+  <img src="https://img.shields.io/badge/rust-1.91-orange.svg" alt="Rust 1.91">
+  <img src="https://img.shields.io/badge/k8s-%E2%89%A5%201.27-326ce5.svg" alt="Kubernetes 1.27+">
+</p>
 
-It runs **entirely in your cluster**. In its default mode it is **read-only** and makes **no
-outbound network calls** — it reads metrics, writes recommendations, and stops there. You decide
-whether to apply a change (by hand, through GitOps, or by letting OpenHPA apply it behind a
-probation + auto-rollback safety net).
+OpenHPA looks at how your HorizontalPodAutoscalers and KEDA ScaledObjects have actually behaved over
+time, then recommends better settings: `minReplicas`, `maxReplicas`, CPU targets, and cooldowns.
+Every recommendation is a Kubernetes custom resource you read with `kubectl`, backed by the metrics
+that produced it.
 
-- **Deterministic first.** A rule engine, not a model, makes every recommendation and every safety
-  decision. It is fully explainable and reproducible.
-- **Optional LLM, off by default.** If you configure a provider and your own API key, an LLM adds a
-  plain-language explanation and risk narrative on top of the deterministic result. It is never
-  required, and it is never in the safety path.
-- **No licensing, no tiers, no telemetry.** Apache-2.0. Everything works out of the box.
-
-> **Scope.** OpenHPA tunes *horizontal scaling behaviour* (how many replicas, and when). It does
-> **not** rightsize CPU/memory *requests and limits* — for that, a tool like
-> [KRR](https://github.com/robusta-dev/krr) is a good complement. The two solve different problems
-> and compose well.
-
----
-
-## Table of contents
-
-- [How it works](#how-it-works)
-- [What evidence backs a recommendation](#what-evidence-backs-a-recommendation)
-- [Quickstart (read-only)](#quickstart-read-only)
-- [Applying changes safely](#applying-changes-safely)
-- [What OpenHPA reads, writes, and sends](#what-openhpa-reads-writes-and-sends)
-- [Kubernetes permissions (RBAC)](#kubernetes-permissions-rbac)
-- [Rules-only vs. optional LLM](#rules-only-vs-optional-llm)
-- [Relationship with GitOps (Argo CD / Flux)](#relationship-with-gitops-argo-cd--flux)
-- [Current limitations](#current-limitations)
-- [Development](#development)
-- [Contributing](#contributing)
-- [Security](#security)
-- [Maintainer](#maintainer)
-- [License](#license)
-
----
-
-## How it works
-
-```
-watch HPA / ScaledObject + read metrics
-        │
-        ▼
-deterministic rule engine  ──►  candidate changes (idle floor, overprovisioned, thrashing, scale lag)
-        │
-        ▼
-(optional) LLM explanation using your own key — narrative + risk, never a safety gate
-        │
-        ▼
-ScalingRecommendation CRD   ──►  you review with `kubectl` (status: pending)
-        │
-        ▼
-approve  ──►  [apply mode] operator patches the target ──► probation window ──► verify health
-                                                                                   │
-                                                                          healthy? keep : auto-rollback
-```
-
-1. **Watch.** The operator watches HPAs and KEDA ScaledObjects in the namespaces you configure and
-   reads their live spec (min/max replicas, target, cooldown).
-2. **Collect.** It reads autoscaling metrics in-cluster over a rolling window — from **Prometheus**
-   (weeks of real history via `query_range`, survives restarts) or, as a fallback, by accumulating
-   the **metrics-server / HPA status** each tick.
-3. **Analyze.** A deterministic rule engine detects candidates: idle floors, overprovisioning,
-   thrashing, and scaling lag. An optional seasonal forecaster (off by default) detects recurring
-   daily/weekly peaks.
-4. **Recommend.** Results are written as `ScalingRecommendation` custom resources with
-   `status: pending`, viewable with `kubectl get scalerec -A`.
-5. **Approve.** A human sets `approved: true` (via `kubectl patch` or GitOps).
-6. **Apply** *(only in `--mode=apply`)*. The operator patches the HPA / ScaledObject, holds the
-   change on a **probation window**, then **verifies** health and **auto-rolls-back** if the
-   workload degrades.
-
-## What evidence backs a recommendation
-
-Each recommendation records the concrete signal that produced it, so you can judge it without
-trusting a black box:
-
-- **Idle floor** — the p95 of observed demand over the window implies a much lower `minReplicas`
-  than is configured; the diff shows the current vs. proposed floor.
-- **Overprovisioned** — sustained CPU well under the target with headroom to raise the utilization
-  target.
-- **Thrashing** — frequent scale up/down oscillation that a longer cooldown would damp.
-- **Scale lag** — the workload repeatedly saturates before scaling catches up (a target or floor
-  adjustment).
-
-The proposed change is expressed as a field-level diff (e.g. `min_replicas: 10 → 3`) plus an
-estimated monthly cost delta derived from a per-replica cost you configure. Nothing is applied
-until you approve it.
-
-## Quickstart (read-only)
-
-The image and chart are public — no registry login required. This install is **recommend-only** and
-makes **no outbound calls**:
+It runs entirely inside your cluster. Out of the box it is read-only and makes zero outbound network
+calls: it reads metrics, writes recommendations, and stops there. You decide whether to apply a
+change by hand, through GitOps, or by letting OpenHPA apply it behind a probation and auto-rollback
+safety net.
 
 ```bash
 helm install openhpa oci://ghcr.io/tonyschneider/charts/openhpa \
   --namespace openhpa --create-namespace
 
-# recommendations appear after a few reconcile ticks
 kubectl get scalerec -A
-kubectl get scalerec <name> -n <ns> -o yaml    # read the diff + evidence
 ```
 
-For real, restart-surviving history, point OpenHPA at Prometheus:
+## Why
 
-```bash
-helm upgrade openhpa oci://ghcr.io/tonyschneider/charts/openhpa \
-  --reuse-values --set metrics.prometheusUrl=http://prometheus-server.monitoring:9090
+Autoscaling config rots. Floors set high during an incident never come back down. CPU targets get
+copy-pasted between services and never revisited. Autoscalers thrash, or lag behind real traffic.
+Nobody has time to audit it by hand.
+
+OpenHPA does that audit continuously and shows its work:
+
+- **Deterministic, not a black box.** A rule engine (not a model) makes every recommendation and
+  every safety decision. Results are reproducible and explainable.
+- **Optional LLM, off by default.** Point it at your own OpenAI or Anthropic key and it will add a
+  plain-language explanation on top of the deterministic result. It is never required and never in
+  the safety path.
+- **No strings.** Apache-2.0, no license keys, no tiers, no telemetry, no account.
+
+> OpenHPA tunes *horizontal* scaling (how many replicas, and when). It does not touch container
+> CPU/memory requests and limits. For vertical rightsizing, pair it with a tool like
+> [KRR](https://github.com/robusta-dev/krr). The two solve different problems.
+
+## How it works
+
+```mermaid
+flowchart LR
+    A[Watch HPAs & ScaledObjects] --> B[Read metrics<br/>Prometheus or metrics-server]
+    B --> C[Rule engine<br/>finds candidates]
+    C --> D[ScalingRecommendation CRD<br/>status: pending]
+    D --> E[You review & approve]
+    E -->|apply mode| F[Patch target]
+    F --> G[Probation window]
+    G --> H{Healthy?}
+    H -->|yes| I[verified]
+    H -->|no| J[auto-rollback]
 ```
 
-Full install, air-gapped mirroring, and configuration are in [docs/](./docs/manual/) (rendered at
-**https://openhpa.dev/docs**).
+1. **Watch.** Reads the live spec of HPAs and KEDA ScaledObjects in the namespaces you configure.
+2. **Collect.** Pulls metric history from Prometheus (weeks of real data, survives restarts) or falls
+   back to accumulating metrics-server / HPA status each tick.
+3. **Analyze.** The rule engine detects idle floors, overprovisioning, thrashing, and scale lag. An
+   optional forecaster (off by default) spots recurring daily and weekly peaks.
+4. **Recommend.** Writes `ScalingRecommendation` resources you inspect with
+   `kubectl get scalerec -A`.
+5. **Approve.** A human sets `approved: true` (via `kubectl patch` or GitOps).
+6. **Apply** (only in `--mode=apply`). Patches the target, holds it on probation, verifies health,
+   and auto-reverts if the workload degrades.
 
-## Applying changes safely
+## Detectors
+
+| Detector | Signal | Typical fix |
+| --- | --- | --- |
+| Idle floor | p95 demand far below the configured `minReplicas` | Lower the floor |
+| Overprovisioned | Sustained CPU well under target | Raise the utilization target |
+| Thrashing | Frequent scale up/down oscillation | Longer cooldown |
+| Scale lag | Workload saturates before scaling catches up | Adjust target or floor |
+
+Each recommendation carries the field-level diff (for example `min_replicas: 10 -> 3`), a risk
+level, and an estimated monthly cost delta.
+
+## Applying changes
 
 By default OpenHPA never mutates a workload. To let it apply approved recommendations:
 
 ```bash
 helm upgrade openhpa oci://ghcr.io/tonyschneider/charts/openhpa \
   --reuse-values --set mode=apply
-# then approve a specific recommendation:
+
 kubectl patch scalerec <name> -n <ns> --type merge -p '{"spec":{"approved":true}}'
 ```
 
-When it applies a change to an HPA, OpenHPA:
+When it applies a change to an HPA it patches the target, records a probation window, then judges
+post-apply health against the pre-apply baseline. Healthy changes are marked `verified`; degraded
+ones are reverted to the exact prior config (`rolledBack`). Rollback only ever restores config
+OpenHPA itself set. Leader election makes `replicaCount: 2+` safe.
 
-1. patches the target and records `appliedAt` + a **probation window**;
-2. after probation, judges post-apply health against the pre-apply baseline;
-3. marks it `verified` if healthy, or **auto-reverts** to the exact prior config (`rolledBack`) if
-   the workload degraded. Rollback runs regardless of mode — it only ever restores config OpenHPA
-   itself set.
-
-Leader election (a `coordination.k8s.io` Lease) makes `replicaCount: 2+` safe — only the leader
-mutates.
-
-## What OpenHPA reads, writes, and sends
+## What it reads, writes, and sends
 
 | | Detail |
-|---|---|
-| **Reads** | HPA & ScaledObject specs/status; Deployment metadata; CPU/replica/queue metrics from Prometheus or metrics-server; its own `ScalingRecommendation` CRDs. |
-| **Writes** | `ScalingRecommendation` CRDs (always); HPA/ScaledObject `spec` patches (**only** in `--mode=apply`, **only** for approved recommendations); a leader-election Lease. |
-| **Sends off-cluster** | **Nothing by default.** Only if you enable the optional LLM: a per-workload summary (config + metric candidates, no secrets) is sent to the provider you choose, using your own API key. See [docs/manual/08-security.md](./docs/manual/08-security.md). |
+| --- | --- |
+| Reads | HPA and ScaledObject specs/status, Deployment metadata, CPU/replica/queue metrics, its own CRDs |
+| Writes | `ScalingRecommendation` CRDs (always); HPA/ScaledObject patches (only in `--mode=apply`, only for approved recommendations); a leader-election Lease |
+| Sends off-cluster | Nothing by default. Only the optional LLM call, using your key, to the provider you pick |
 
-OpenHPA has no phone-home, no telemetry, and no license server. It works fully air-gapped.
+No phone-home, no telemetry, no license server. Works fully air-gapped.
 
-## Kubernetes permissions (RBAC)
+## Permissions
 
-The chart installs a `ClusterRole` with least privilege. Notably, **OpenHPA needs no access to
-Secrets** — the only sensitive value (an optional LLM key) is injected as an environment variable by
-the pod spec, never read via the Kubernetes API.
+The chart ships a least-privilege `ClusterRole`. OpenHPA needs **no** access to Secrets: the optional
+LLM key is injected as an environment variable, never read through the API. The only mutating grants
+are `patch`/`update` on autoscalers, used solely in apply mode. Full table in
+[docs/manual/08-security.md](docs/manual/08-security.md).
 
-| Resource | Verbs | Why |
-|---|---|---|
-| `autoscaling/horizontalpodautoscalers` | get, list, watch, **patch, update** | read config; apply approved changes (apply mode) |
-| `keda.sh/scaledobjects` | get, list, watch, **patch, update** | same, for KEDA |
-| `apps/deployments` | get, list, watch | read-only context for analysis |
-| `metrics.k8s.io/pods,nodes` | get, list | metrics-server fallback |
-| `openhpa.dev/scalingrecommendations(/status)` | full | own its recommendation CRDs |
-| `coordination.k8s.io/leases` | get, create, update, patch | leader election |
+## GitOps
 
-`patch`/`update` on autoscalers are the only mutating grants; drop apply mode and OpenHPA is
-effectively read-only. See [docs/manual/08-security.md](./docs/manual/08-security.md).
+If Argo CD or Flux owns your autoscaler specs, a direct apply gets reverted on the next sync. That is
+expected: Git is the source of truth. Run OpenHPA in recommend-only mode there and fold each
+`ScalingRecommendation` back into your manifests. The CRD carries a field-level diff by design, so
+GitOps-native pull-request generation can be built on top of it later. See
+[ADR 0002](docs/adr/0002-open-source-conversion.md).
 
-## Rules-only vs. optional LLM
+## Documentation
 
-- **Rules-only (default).** `llm.provider=none`. Fully deterministic, zero egress, works
-  air-gapped. Recommendations carry the rule-derived diff and a templated explanation.
-- **Optional LLM.** Set `llm.provider=openai|anthropic` and provide your own key. The LLM enriches
-  the explanation and risk narrative; the deterministic rule engine still produces the actual
-  change and still makes every safety decision. You can point `llm.baseUrl` at an in-cluster proxy
-  or a local model.
-
-Anthropic Bedrock via a VPC endpoint (for isolated clusters) is planned, not yet wired.
-
-## Relationship with GitOps (Argo CD / Flux)
-
-If your HPA / ScaledObject specs are owned by Git and reconciled by Argo CD or Flux, a **direct
-change OpenHPA applies in `--mode=apply` will be reverted** by the GitOps controller on its next
-sync. This is expected — Git is the source of truth.
-
-The recommended pattern today is: **run OpenHPA in recommend-only mode** and treat each
-`ScalingRecommendation` as a proposal to fold back into your manifests (by hand or via automation).
-The recommendation model — a declarative CRD carrying a field-level diff — is deliberately designed
-so that **GitOps-native pull-request generation can be built on top of it later** without changing
-the analysis engine. That is a roadmap direction, not a current feature; see
-[docs/adr/0002-open-source-conversion.md](./docs/adr/0002-open-source-conversion.md).
-
-## Current limitations
-
-- **GitOps.** Direct apply conflicts with Git-owned specs (above). PR generation is not yet built.
-- **KEDA verification.** ScaledObject changes are marked `verified` at apply time; post-apply health
-  verification and auto-rollback are implemented for **HPA targets only** so far.
-- **Vertical rightsizing is out of scope.** OpenHPA does not touch container CPU/memory
-  requests/limits (use KRR or VPA for that).
-- **Forecasting is opt-in and conservative.** It only acts on workloads with a genuine periodic
-  signal and enough history; flat/random workloads are left reactive.
-- **Bedrock / local-model** integrations are planned, not shipped.
+- [Overview](docs/manual/01-overview.md) and [architecture](docs/architecture.md)
+- [Installation](docs/manual/03-installation.md), including air-gapped
+- [Configuration reference](docs/manual/04-configuration-reference.md)
+- [Security model](docs/manual/08-security.md)
+- Full manual: [docs/manual](docs/manual/)
 
 ## Development
 
-```bash
-cargo test -p openhpa-core          # fast, pure-logic tests (no cluster)
-cargo test --workspace              # all unit tests
-cargo clippy --workspace --all-targets -- -D warnings
-cargo fmt --all                     # taplo fmt for Cargo.toml
+Requires Rust 1.91.1 (pinned in [rust-toolchain.toml](rust-toolchain.toml)).
 
-# run against a local cluster
+```bash
+cargo test -p openhpa-core                            # fast, pure-logic tests, no cluster
+cargo test --workspace                                # all unit tests
+cargo clippy --workspace --all-targets -- -D warnings
+cargo fmt --all
+
 kind create cluster --name openhpa-dev
 cargo run -p openhpa-operator
-cargo run -p openhpa-operator -- --print-crd    # emit the CRD JSON
+cargo run -p openhpa-operator -- --print-crd          # emit the CRD JSON
 
-docker build -t openhpa .           # multi-stage → distroless, nonroot
-
-# cluster-backed end-to-end tests (need a kind cluster; run serially)
-cargo test -p e2e-tests -- --ignored --test-threads=1
+docker build -t openhpa .                             # multi-stage, distroless, nonroot
+cargo test -p e2e-tests -- --ignored --test-threads=1 # needs a kind cluster
 ```
 
-- **`core/`** (`openhpa-core`) — pure, Kubernetes-free domain logic: metric snapshots, the rule
-  engine, seasonal forecasting, LLM prompt/parse, recommendation synthesis. Fast to compile + test.
-- **`operator/`** (`openhpa-operator`) — the kube-rs operator: CRD types, collector, metrics
-  sources, LLM backends, applier, safety/verify, leader election, and the reconcile controller.
-- **`deploy/`** — the Helm chart. **`e2e-tests/`** — cluster-backed tests. **`docs/`** — the manual.
+Layout:
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) and [docs/architecture.md](./docs/architecture.md).
+- `core/` (`openhpa-core`): pure, Kubernetes-free domain logic. Rule engine, forecasting, LLM
+  prompt/parse, synthesis. No cluster needed to test it.
+- `operator/` (`openhpa-operator`): the kube-rs operator that wires `core` to Kubernetes.
+- `deploy/`: the Helm chart. `e2e-tests/`: cluster-backed tests. `docs/`: the manual.
 
 ## Contributing
 
-Contributions are welcome. Please read [CONTRIBUTING.md](./CONTRIBUTING.md) (build, test, and code
-conventions) and our [Code of Conduct](./CODE_OF_CONDUCT.md). Good first areas: additional detection
-rules, KEDA verification parity, and GitOps PR generation.
+Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) and the
+[Code of Conduct](CODE_OF_CONDUCT.md). Good first areas: new detection rules, KEDA verification
+parity with HPA, and GitOps PR generation.
+
+## Roadmap
+
+- [ ] GitOps-native pull-request generation
+- [ ] Health verification and auto-rollback for KEDA ScaledObjects (HPA today)
+- [ ] Bedrock and local-model LLM backends
+- [ ] A read-only `scan` CLI for one-shot audits
 
 ## Security
 
-Please report vulnerabilities privately per [SECURITY.md](./SECURITY.md) — do not open a public
-issue for security reports.
+Report vulnerabilities privately per [SECURITY.md](SECURITY.md). Please do not open a public issue
+for security reports.
 
 ## Maintainer
 
-OpenHPA is created and maintained by **Tony Schneider** — https://github.com/tonyschneider.
+Built and maintained by Tony Schneider ([@tonyschneider](https://github.com/tonyschneider)).
 
 ## License
 
-Licensed under the [Apache License 2.0](./LICENSE). See [NOTICE](./NOTICE).
+[Apache 2.0](LICENSE).
