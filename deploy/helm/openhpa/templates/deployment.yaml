@@ -1,0 +1,116 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "openhpa.name" . }}
+  labels:
+    {{- include "openhpa.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "openhpa.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "openhpa.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "openhpa.serviceAccountName" . }}
+      containers:
+        - name: operator
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: RUST_LOG
+              value: "info,openhpa_operator=debug"
+            - name: OPENHPA_MODE
+              value: {{ .Values.mode | quote }}
+            - name: OPENHPA_WATCH_NAMESPACES
+              value: {{ .Values.watchNamespaces | quote }}
+            - name: OPENHPA_INTERVAL_SECONDS
+              value: {{ .Values.intervalSeconds | quote }}
+            - name: OPENHPA_COST_PER_REPLICA_USD_MONTHLY
+              value: {{ .Values.costPerReplicaUsdMonthly | quote }}
+            - name: OPENHPA_LLM_PROVIDER
+              value: {{ .Values.llm.provider | quote }}
+            - name: OPENHPA_LLM_MODEL
+              value: {{ .Values.llm.model | quote }}
+            {{- with .Values.llm.baseUrl }}
+            - name: OPENHPA_LLM_BASE_URL
+              value: {{ . | quote }}
+            {{- end }}
+            - name: OPENHPA_LLM_TIMEOUT_SECONDS
+              value: {{ .Values.llm.timeoutSeconds | quote }}
+            - name: OPENHPA_LLM_CONCURRENCY
+              value: {{ .Values.llm.concurrency | quote }}
+            {{- with .Values.llm.analysisBudgetSeconds }}
+            - name: OPENHPA_ANALYSIS_BUDGET_SECONDS
+              value: {{ . | quote }}
+            {{- end }}
+            - name: OPENHPA_PROMETHEUS_URL
+              value: {{ .Values.metrics.prometheusUrl | quote }}
+            - name: OPENHPA_METRICS_WINDOW_DAYS
+              value: {{ .Values.metrics.windowDays | quote }}
+            - name: OPENHPA_METRICS_STEP_SECONDS
+              value: {{ .Values.metrics.stepSeconds | quote }}
+            {{- with .Values.metrics.promqlCpu }}
+            - name: OPENHPA_PROMQL_CPU
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.metrics.promqlReplicas }}
+            - name: OPENHPA_PROMQL_REPLICAS
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.metrics.promqlQueue }}
+            - name: OPENHPA_PROMQL_QUEUE
+              value: {{ . | quote }}
+            {{- end }}
+            - name: OPENHPA_PROBATION_WINDOW_MINUTES
+              value: {{ .Values.safety.probationWindowMinutes | quote }}
+            - name: OPENHPA_ROLLBACK_ENABLED
+              value: {{ .Values.safety.rollbackEnabled | quote }}
+            - name: OPENHPA_HEALTH_CPU_MARGIN
+              value: {{ .Values.safety.healthCpuMargin | quote }}
+            - name: OPENHPA_ENABLE_LEADER_ELECTION
+              value: {{ .Values.leaderElection.enabled | quote }}
+            - name: OPENHPA_LEASE_NAME
+              value: {{ .Values.leaderElection.leaseName | quote }}
+            - name: OPENHPA_LEASE_NAMESPACE
+              value: {{ .Values.leaderElection.leaseNamespace | default .Release.Namespace | quote }}
+            - name: OPENHPA_ENABLE_FORECASTING
+              value: {{ .Values.forecasting.enabled | quote }}
+            - name: OPENHPA_FORECAST_MIN_HISTORY_DAYS
+              value: {{ .Values.forecasting.minHistoryDays | quote }}
+            - name: OPENHPA_FORECAST_BIN_MINUTES
+              value: {{ .Values.forecasting.binMinutes | quote }}
+            - name: OPENHPA_FORECAST_QUANTILE
+              value: {{ .Values.forecasting.quantile | quote }}
+            - name: OPENHPA_PERIODICITY_THRESHOLD
+              value: {{ .Values.forecasting.periodicityThreshold | quote }}
+            - name: OPENHPA_PRESCALE_LEAD_MINUTES
+              value: {{ .Values.forecasting.prescaleLeadMinutes | quote }}
+            {{- if or .Values.llm.apiKey .Values.llm.existingSecret }}
+            # The operator reads the provider's key from its conventional env var (OPENAI_API_KEY for
+            # openai, ANTHROPIC_API_KEY for anthropic). The key never touches the Kubernetes Secrets
+            # API from the operator's side - the kubelet injects it as an env var at pod start.
+            - name: {{ if eq .Values.llm.provider "anthropic" }}ANTHROPIC_API_KEY{{ else }}OPENAI_API_KEY{{ end }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.llm.existingSecret | default (printf "%s-llm" (include "openhpa.name" .)) }}
+                  key: apiKey
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            # Numeric uid/gid of the distroless `nonroot` user. Required so the kubelet can verify
+            # runAsNonRoot — a non-numeric image USER alone fails with CreateContainerConfigError.
+            runAsUser: 65532
+            runAsGroup: 65532
+            capabilities:
+              drop: ["ALL"]

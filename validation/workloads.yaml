@@ -1,0 +1,121 @@
+# Synthetic workloads for the A2 real-cluster validation run (plan 0006). Each Deployment + HPA is
+# shaped to exercise one rule detector so the operator's recommendations can be judged against a
+# known-correct expectation. Apply into the `ss-validation` namespace:
+#
+#   kubectl create namespace ss-validation
+#   kubectl apply -n ss-validation -f validation/workloads.yaml
+#
+# These need metrics-server (and ideally Prometheus) so the HPAs report real utilization.
+---
+# idle-window: a near-idle service pinned to a high floor. Expect an idle_window recommendation
+# lowering minReplicas toward 1-2.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: idle-svc
+spec:
+  replicas: 4
+  selector:
+    matchLabels: { app: idle-svc }
+  template:
+    metadata:
+      labels: { app: idle-svc }
+    spec:
+      containers:
+        - name: app
+          image: registry.k8s.io/pause:3.9
+          resources:
+            requests: { cpu: 50m }
+            limits: { cpu: 100m }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: idle-svc
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: idle-svc }
+  minReplicas: 4
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } }
+---
+# overprovisioned: a steady, low-but-not-idle load with a conservative target. Expect an
+# overprovisioned recommendation raising target_cpu_pct.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: overprovisioned-svc
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app: overprovisioned-svc }
+  template:
+    metadata:
+      labels: { app: overprovisioned-svc }
+    spec:
+      containers:
+        # The load container saturates its own 25m limit (cgroup-throttled, so the duty cycle is
+        # host-speed-independent). Against the pod's 80m total request that is a steady ~31%
+        # utilization - above the 20% idle threshold, under the 40% overprovision p95 threshold -
+        # so this workload actually exercises the overprovisioned detector. (The old
+        # iteration-count busy loop burned ~170% of the request on a typical core: p95 never
+        # dropped below 40% and the detector never fired.)
+        - name: load
+          image: busybox
+          args: ["/bin/sh", "-c", "while true; do :; done"]
+          resources:
+            requests: { cpu: 10m }
+            limits: { cpu: 25m }
+        # Padding request so pod utilization (usage / sum of requests) sits at ~31%.
+        - name: ballast
+          image: registry.k8s.io/pause:3.9
+          resources:
+            requests: { cpu: 70m }
+            limits: { cpu: 70m }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: overprovisioned-svc
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: overprovisioned-svc }
+  minReplicas: 3
+  maxReplicas: 15
+  metrics:
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } }
+---
+# healthy baseline: a right-sized, CPU-busy service that should produce NO recommendation. A
+# false-positive here is a signal the rules/LLM are too aggressive.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: healthy-svc
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: healthy-svc }
+  template:
+    metadata:
+      labels: { app: healthy-svc }
+    spec:
+      containers:
+        - name: app
+          image: busybox
+          args: ["/bin/sh", "-c", "while true; do :; done"]
+          resources:
+            requests: { cpu: 50m }
+            limits: { cpu: 100m }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: healthy-svc
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: healthy-svc }
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } }

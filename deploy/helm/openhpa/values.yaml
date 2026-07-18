@@ -1,0 +1,96 @@
+image:
+  repository: ghcr.io/tonyschneider/openhpa
+  tag: ""            # defaults to .Chart.AppVersion
+  pullPolicy: IfNotPresent
+
+# Pull secrets for a private registry (e.g. GHCR with a read-only token). Each entry is { name }.
+# Create the Secret with `kubectl create secret docker-registry`; leave empty for a public image.
+imagePullSecrets: []
+
+# Number of operator replicas. 2+ is safe with leaderElection.enabled (only the leader mutates).
+replicaCount: 1
+
+# Operating mode: "recommend" (default - only emit ScalingRecommendations, never mutate a workload,
+# even an approved one) or "apply" (also patch approved targets). Start in recommend-only for a first
+# rollout; switch to "apply" once the advice is trusted.
+mode: recommend
+
+# Comma-separated namespaces to watch; empty = all namespaces.
+watchNamespaces: ""
+
+# Seconds between reconcile ticks. Also drives the leader lease duration (3x this value).
+intervalSeconds: 300
+
+# Estimated monthly cost (USD) of one always-on replica, pricing the projected-savings estimates.
+# Set it to your real per-replica node share; must be > 0.
+costPerReplicaUsdMonthly: 30
+
+# Metric history. With a Prometheus URL the operator backfills weeks of real history on every tick
+# (survives restart); empty falls back to slow per-tick HPA-status accumulation.
+metrics:
+  prometheusUrl: ""
+  windowDays: 14
+  stepSeconds: 300
+  # PromQL overrides ({ns}/{deploy} placeholders); empty uses kube-state-metrics + cAdvisor defaults.
+  promqlCpu: ""
+  promqlReplicas: ""
+  promqlQueue: ""
+
+# Apply -> probation -> verify safety net: auto-revert a change whose workload health degrades.
+safety:
+  probationWindowMinutes: 45
+  rollbackEnabled: true
+  healthCpuMargin: 0.15
+
+# Single-leader election (coordination.k8s.io Lease) so replicaCount: 2+ never double-applies.
+leaderElection:
+  enabled: true
+  leaseName: openhpa-leader
+  # Lease namespace; empty = the operator's own namespace (release namespace).
+  leaseNamespace: ""
+
+# Predictive scaling: forecast recurring (daily/weekly) peaks and pre-scale the floor ahead of them.
+# Off until validated for your workloads; needs Prometheus history (metrics.prometheusUrl) and a real
+# periodic signal - flat/random workloads are left reactive.
+forecasting:
+  enabled: false
+  minHistoryDays: 14
+  binMinutes: 60
+  quantile: 0.95
+  periodicityThreshold: 0.3
+  prescaleLeadMinutes: 10
+
+# Optional LLM integration. OFF by default (provider: none = deterministic rules only). The rules
+# engine alone makes every safety decision; an LLM only enriches the human-readable explanation and
+# risk narrative. When enabled, the operator sends per-workload metric summaries to the configured
+# provider using YOUR key (bring-your-own). See docs/security for exactly what is sent.
+llm:
+  # none (rules-only, no LLM, no egress) | openai | anthropic. bedrock is planned, not yet wired.
+  provider: none
+  model: gpt-4o-mini
+  # Override the LLM API base URL; empty = the provider's real endpoint. Point at an in-cluster
+  # proxy, a local-model sidecar, or a mock.
+  baseUrl: ""
+  # Per-request timeout (seconds); a stalled model can't stretch a reconcile pass.
+  timeoutSeconds: 30
+  # Max concurrent LLM calls during the analysis pass.
+  concurrency: 4
+  # Time budget (seconds) for the analysis pass's LLM phase; empty = one reconcile interval.
+  # Workloads not reached before the budget elapses are analyzed on the next tick.
+  analysisBudgetSeconds: ""
+  # Set apiKey to have the chart create a Secret holding it, or point existingSecret at an existing
+  # Secret with an `apiKey` key. The key is injected into the pod as an env var; the operator never
+  # reads Secrets via the Kubernetes API. Leave both empty for rules-only mode (no LLM, no egress).
+  apiKey: ""
+  existingSecret: ""
+
+serviceAccount:
+  name: openhpa
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 128Mi

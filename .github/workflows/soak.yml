@@ -1,0 +1,70 @@
+name: soak
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Nightly at 03:17 UTC - kept off PR CI on purpose.
+    - cron: "17 3 * * *"
+
+env:
+  RUST_BACKTRACE: 1
+  RUST_LOG: info,openhpa_operator=debug
+
+jobs:
+  soak:
+    name: 15-minute soak on kind
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+
+      - name: Setup Rust (1.91.1)
+        uses: dtolnay/rust-toolchain@1.91.1
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build operator
+        run: cargo build -p openhpa-operator
+
+      - name: Install metrics-server (kind needs --kubelet-insecure-tls)
+        run: |
+          kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+          kubectl -n kube-system patch deployment metrics-server --type=json \
+            -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+          kubectl -n kube-system rollout status deployment/metrics-server --timeout=180s
+
+      - name: Install CRD + a CPU-busy synthetic workload
+        run: |
+          cargo run -p openhpa-operator -- --print-crd | kubectl apply -f -
+          kubectl create namespace soak
+          # A busy-loop workload with a CPU request so the HPA reports real utilization (not idle
+          # pause pods) - this actually exercises analysis/apply across the soak.
+          kubectl -n soak create deployment synthetic --image=busybox --replicas=2 \
+            -- /bin/sh -c "while true; do :; done"
+          kubectl -n soak set resources deployment synthetic --requests=cpu=50m --limits=cpu=100m
+          kubectl -n soak rollout status deployment/synthetic --timeout=120s
+          kubectl -n soak autoscale deployment synthetic --min=2 --max=10 --cpu-percent=70
+
+      - name: Soak the operator for ~15 minutes (recommend-only)
+        run: |
+          set -o pipefail
+          timeout 900 cargo run -p openhpa-operator -- \
+            --watch-namespaces soak \
+            --interval-seconds 30 \
+            --enable-leader-election=false \
+            2>&1 | tee soak.log || true
+
+      - name: Assert no panics and no unapproved applies
+        run: |
+          if grep -Eq "panicked|RUST_BACKTRACE" soak.log; then
+            echo "::error::operator panicked during soak"; exit 1
+          fi
+          applied=$(kubectl get scalingrecommendations -A -o json \
+            | jq '[.items[] | select(.spec.approved != true and .status.phase == "applied")] | length')
+          echo "unapproved applies: ${applied}"
+          if [ "${applied}" != "0" ]; then
+            echo "::error::operator applied a change without approval"; exit 1
+          fi

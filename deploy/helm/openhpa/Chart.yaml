@@ -1,0 +1,13 @@
+apiVersion: v2
+name: openhpa
+description: OpenHPA - analyzes and tunes Kubernetes HPA / KEDA autoscaling behaviour in-cluster.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.27.0-0"
+home: https://openhpa.dev
+sources:
+  - https://github.com/tonyschneider/openhpa
+maintainers:
+  - name: Tony Schneider
+    url: https://github.com/tonyschneider

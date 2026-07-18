@@ -1,0 +1,23 @@
+[package]
+edition.workspace      = true
+license.workspace      = true
+name                   = "e2e-tests"
+publish                = false
+rust-version.workspace = true
+version.workspace      = true
+
+[dependencies]
+anyhow           = { workspace = true }
+chrono           = { workspace = true }
+k8s-openapi      = { workspace = true }
+kube             = { workspace = true }
+openhpa-core     = { workspace = true }
+openhpa-operator = { workspace = true }
+serde_json       = { workspace = true }
+tokio            = { workspace = true }
+
+[dev-dependencies]
+wiremock = { workspace = true }
+
+[lints]
+workspace = true

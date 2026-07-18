@@ -1,0 +1,20 @@
+# Rust
+/target
+**/*.rs.bk
+Cargo.lock.orig
+
+# Env / secrets (never commit private keys or credentials)
+.env
+.env.local
+.env.prod
+*.pem
+*.key
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Helm
+*.tgz

@@ -1,0 +1,12 @@
+# Artifact Hub repository metadata — https://artifacthub.io/docs/topics/repositories/
+#
+# Published alongside the chart as an OCI artifact tagged `:artifacthub.io` by the release
+# workflow (.github/workflows/release.yml). Only the `owners` section is needed to claim
+# ownership; the email MUST match the account used to sign in to Artifact Hub.
+#
+# After the repository is added to Artifact Hub, set `repositoryID` (shown on the repository
+# card) to earn the verified-publisher badge:
+# repositoryID: <uuid-from-artifact-hub>
+owners:
+  - name: openhpa
+    email: contact@openhpa.dev

@@ -1,0 +1,44 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "openhpa.name" . }}
+  labels:
+    {{- include "openhpa.labels" . | nindent 4 }}
+rules:
+  # Read + tune autoscalers (the only mutating access).
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["keda.sh"]
+    resources: ["scaledobjects"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  # Read-only context for analysis.
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list"]
+  # Own recommendation CRDs.
+  - apiGroups: ["openhpa.dev"]
+    resources: ["scalingrecommendations", "scalingrecommendations/status"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Leader election (single-writer for the mutating passes).
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "openhpa.name" . }}
+  labels:
+    {{- include "openhpa.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "openhpa.name" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "openhpa.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}

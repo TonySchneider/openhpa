@@ -1,0 +1,98 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: scalingrecommendations.openhpa.dev
+spec:
+  group: openhpa.dev
+  scope: Namespaced
+  names:
+    kind: ScalingRecommendation
+    plural: scalingrecommendations
+    singular: scalingrecommendation
+    shortNames:
+      - scalerec
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          required: [spec]
+          properties:
+            spec:
+              type: object
+              required: [targetRef, configDiff, riskLevel, summaryMd]
+              properties:
+                targetRef:
+                  type: object
+                  required: [kind, name]
+                  properties:
+                    kind:
+                      type: string
+                      enum: [HorizontalPodAutoscaler, ScaledObject]
+                    name:
+                      type: string
+                approved:
+                  type: boolean
+                  default: false
+                riskLevel:
+                  type: string
+                  enum: [low, medium, high]
+                summaryMd:
+                  type: string
+                projectedSavingsUsdMonthly:
+                  type: number
+                configDiff:
+                  type: object
+                  additionalProperties:
+                    type: object
+                    required: [from, to]
+                    properties:
+                      from:
+                        type: integer
+                      to:
+                        type: integer
+                schedule:
+                  type: array
+                  items:
+                    type: object
+                    required: [startCron, durationMinutes, minReplicas]
+                    properties:
+                      startCron:
+                        type: string
+                      durationMinutes:
+                        type: integer
+                      minReplicas:
+                        type: integer
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                  enum: [pending, approved, applied, verified, rolledBack, blocked, degraded, rejected, failed]
+                appliedAt:
+                  type: string
+                  format: date-time
+                probationUntil:
+                  type: string
+                  format: date-time
+                scheduleActive:
+                  type: boolean
+                detail:
+                  type: string
+      additionalPrinterColumns:
+        - name: Target
+          type: string
+          jsonPath: .spec.targetRef.name
+        - name: Risk
+          type: string
+          jsonPath: .spec.riskLevel
+        - name: Approved
+          type: boolean
+          jsonPath: .spec.approved
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+      subresources:
+        status: {}
