@@ -3,7 +3,7 @@
 OpenHPA is designed for a security-conscious platform team: minimal privilege, no data exfiltration,
 and a signed supply chain.
 
-## 8.1 RBAC — least privilege
+## 8.1 RBAC - least privilege
 
 The chart installs one `ClusterRole` (and a `ClusterRoleBinding` to the operator's service account).
 Every rule and its justification:
@@ -21,7 +21,7 @@ The operator's **only** write access to your workloads is to HPAs and ScaledObje
 `apply` mode. It cannot modify Deployments or touch workload pods.
 
 **No access to Secrets.** OpenHPA requests no `secrets` RBAC at all. The only sensitive value (an
-optional LLM API key) is injected into the pod as an environment variable by the Deployment spec —
+optional LLM API key) is injected into the pod as an environment variable by the Deployment spec -
 the operator never reads it, or any other Secret, through the Kubernetes API.
 
 ### Narrowing the blast radius
@@ -29,7 +29,7 @@ the operator never reads it, or any other Secret, through the Kubernetes API.
 - Set `watchNamespaces` to the specific namespaces you want tuned. (The ClusterRole is
   cluster-scoped because HPAs may live anywhere; the operator only acts on the namespaces you list.)
 - Run in the default `recommend` mode to remove the two mutating grants from the operator's
-  effective behaviour entirely — it becomes a read-only advisor.
+  effective behaviour entirely - it becomes a read-only advisor.
 
 ## 8.2 Data residency
 
@@ -60,7 +60,7 @@ produces recommendations deterministically, and no LLM decision is ever in the s
 ## 8.4 Supply chain and runtime hardening
 
 - **Signed image + SBOM.** Every release image is cosign-signed via keyless OIDC (no long-lived
-  signing keys) and ships an attested SPDX SBOM. Verify both before install — see
+  signing keys) and ships an attested SPDX SBOM. Verify both before install - see
   [Installation §3.2](./03-installation.md).
 - **Distroless, non-root.** The image is a distroless base with no shell or package manager. The
   container runs as a non-root user with `readOnlyRootFilesystem: true`,

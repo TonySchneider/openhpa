@@ -8,13 +8,13 @@ artifacts to GitHub Container Registry (GHCR):
 | Image | `ghcr.io/tonyschneider/openhpa` |
 | Helm chart | `oci://ghcr.io/tonyschneider/charts/openhpa` |
 
-Both are **public** — no registry login or pull Secret is needed to install. Throughout, substitute
+Both are **public** - no registry login or pull Secret is needed to install. Throughout, substitute
 `<version>` with the release you are installing (for example `0.1.0`), `<release>` with your Helm
 release name, and `<namespace>` with the target namespace.
 
 ## 3.1 Quickstart (recommend-only, no egress)
 
-Two commands take you from nothing to recommendations. The default install is **read-only** — it
+Two commands take you from nothing to recommendations. The default install is **read-only** - it
 never mutates a workload and makes **no outbound network calls**.
 
 ```bash
@@ -32,19 +32,19 @@ the estimated saving. See [Usage & workflow](./06-usage.md) to read, approve, an
 
 > **Want LLM-enriched explanations?** Add `--set llm.provider=openai --set
 > llm.apiKey=<your-llm-api-key>` (or `llm.provider=anthropic`). This is the only thing that causes
-> any egress — a per-workload metric summary is sent to your chosen provider using your own key. The
+> any egress - a per-workload metric summary is sent to your chosen provider using your own key. The
 > deterministic rule engine still produces the actual recommendations either way. `llm.apiKey` makes
 > the chart create a Secret, or point `llm.existingSecret` at one holding the key under `apiKey`.
 
 ## 3.2 Verify the image signature
 
-The image is signed with **cosign keyless signing** (Sigstore / GitHub OIDC — no long-lived keys).
+The image is signed with **cosign keyless signing** (Sigstore / GitHub OIDC - no long-lived keys).
 Verify that the image was produced by the OpenHPA release workflow before pulling it into your
 cluster:
 
 ```bash
 cosign verify \
-  --certificate-identity-regexp '^https://github\.com/tonyschneider/openhpa/\.github/workflows/release\.yml@refs/tags/v.*$' \
+  --certificate-identity-regexp '^(?i)https://github\.com/tonyschneider/openhpa/\.github/workflows/release\.yml@refs/tags/v.*$' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   ghcr.io/tonyschneider/openhpa:<version>
 ```
@@ -58,7 +58,7 @@ To pin to an immutable digest, resolve and verify by digest:
 ```bash
 DIGEST=$(crane digest ghcr.io/tonyschneider/openhpa:<version>)
 cosign verify \
-  --certificate-identity-regexp '^https://github\.com/tonyschneider/openhpa/\.github/workflows/release\.yml@refs/tags/v.*$' \
+  --certificate-identity-regexp '^(?i)https://github\.com/tonyschneider/openhpa/\.github/workflows/release\.yml@refs/tags/v.*$' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   ghcr.io/tonyschneider/openhpa@${DIGEST}
 ```
@@ -85,7 +85,7 @@ Notes:
 - Applied HPA changes go on a probation window and are auto-rolled-back if the workload degrades
   (see [Usage](./06-usage.md) and [Operating](./07-operating.md)).
 - If your autoscaler specs are managed by a GitOps controller (Argo CD / Flux), a direct apply will
-  be reverted on the next sync — prefer recommend-only there. See the README's GitOps section.
+  be reverted on the next sync - prefer recommend-only there. See the README's GitOps section.
 
 ### Recommended add-ons
 
@@ -179,5 +179,5 @@ kubectl logs -n <namespace> deploy/openhpa
 
 On a healthy start the logs report the configured provider, watched namespaces, whether Prometheus
 history is in use, and the operating mode. Recommendations begin to appear once the operator has
-accumulated enough metric history — see [Usage and workflow](./06-usage.md) and, if none appear,
+accumulated enough metric history - see [Usage and workflow](./06-usage.md) and, if none appear,
 [Troubleshooting](./09-troubleshooting.md).

@@ -45,16 +45,16 @@ Key fields under `spec`:
 
 | Field | Meaning |
 | --- | --- |
-| `targetRef` | `{ kind: HorizontalPodAutoscaler | ScaledObject, name }` — what gets patched. |
+| `targetRef` | `{ kind: HorizontalPodAutoscaler | ScaledObject, name }` - what gets patched. |
 | `riskLevel` | `low` / `medium` / `high`. |
 | `summaryMd` | Human-readable Markdown summary of the reasoning. With `llm.provider=none` the rules-only output notes that no LLM was configured; in recommend-only mode the summary notes that the change is advisory and should be applied by a human. |
-| `projectedSavingsUsdMonthly` | Estimated monthly saving, when the analysis produced one. This is an **estimate**, priced at `costPerReplicaUsdMonthly` (default `$30`/replica/month) when the LLM has no better figure — set that value to your real per-replica cost, and treat the number as directional, not an invoice. The `summaryMd` repeats the pricing basis. |
-| `configDiff` | A map of `field → { from, to }`: the exact change. Fields: `min_replicas`, `max_replicas`, `target_cpu_pct`, `scale_down_cooldown_s`. |
+| `projectedSavingsUsdMonthly` | Estimated monthly saving, when the analysis produced one. This is an **estimate**, priced at `costPerReplicaUsdMonthly` (default `$30`/replica/month) when the LLM has no better figure - set that value to your real per-replica cost, and treat the number as directional, not an invoice. The `summaryMd` repeats the pricing basis. |
+| `configDiff` | A map of `field -> { from, to }`: the exact change. Fields: `min_replicas`, `max_replicas`, `target_cpu_pct`, `scale_down_cooldown_s`. |
 | `schedule` | Optional list of predictive windows: `{ startCron, durationMinutes, minReplicas }`. Present only for forecasted recurring peaks. |
 
 Read the `summaryMd` for the *why*, and `configDiff` for the *what*. For example, a diff of
 `min_replicas: { from: 10, to: 3 }` with `target_cpu_pct: { from: 50, to: 70 }` proposes
-lowering the floor and raising the CPU target — trading idle headroom for cost.
+lowering the floor and raising the CPU target - trading idle headroom for cost.
 
 ## 6.3 Approve a recommendation
 
@@ -96,7 +96,7 @@ health and decides:
 | Degraded, rollback disabled | Hold for re-judgement (revert later if you re-enable rollback). | `degraded` |
 
 The rollback restores exactly the values the operator changed, and runs **regardless of operating
-mode** — it only ever undoes the operator's own change, so switching a deploy from apply back to
+mode** - it only ever undoes the operator's own change, so switching a deploy from apply back to
 recommend can never strand a degraded workload mid-probation.
 
 > Health verification (and therefore auto-rollback) currently applies to **HPA** targets.

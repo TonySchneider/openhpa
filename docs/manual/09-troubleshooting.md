@@ -17,7 +17,7 @@ A few normal causes, in order of likelihood:
    `metrics source: HPA-status fallback` when no Prometheus URL is set.
 2. **Prometheus returns no points.** The log line
    `prometheus returned no points; check CPU requests/limits or PromQL templates` means the
-   default query found nothing — usually because the workload has no CPU requests/limits (the
+   default query found nothing - usually because the workload has no CPU requests/limits (the
    default query's denominator), or your Prometheus uses non-standard metric names. Set CPU
    requests on the workload, or override the queries with `metrics.promqlCpu` /
    `metrics.promqlReplicas` / `metrics.promqlQueue` (using `{ns}` / `{deploy}` placeholders).
@@ -46,13 +46,13 @@ A few normal causes, in order of likelihood:
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | Approved recommendation stays `pending`, nothing patched | Operator is in `recommend` mode (the default). | Set `--set mode=apply` on a `helm upgrade`. |
-| Applied change immediately reverts on the next sync | A GitOps controller (Argo CD / Flux) owns the spec. | Expected — Git is the source of truth. Run recommend-only and fold the change into your manifests. See [§9.5](#95-a-change-was-applied-but-immediately-rolled-back) and the README's GitOps section. |
+| Applied change immediately reverts on the next sync | A GitOps controller (Argo CD / Flux) owns the spec. | Expected - Git is the source of truth. Run recommend-only and fold the change into your manifests. See [§9.5](#95-a-change-was-applied-but-immediately-rolled-back) and the README's GitOps section. |
 | `apply failed: … is forbidden` | Missing RBAC (see [§9.4](#94-rbac-errors)). | Re-install the chart with the `ClusterRole`/`ClusterRoleBinding`. |
 
 ## 9.4 RBAC errors
 
 Log lines like `apply failed: … is forbidden: User "system:serviceaccount:…" cannot patch
-resource …` mean the service account lacks a grant — usually because the `ClusterRole` /
+resource …` mean the service account lacks a grant - usually because the `ClusterRole` /
 `ClusterRoleBinding` was not installed (e.g. a templated-manifests-only deploy without
 cluster-admin). Re-run the Helm install with cluster-admin so the RBAC objects are created,
 and confirm:
@@ -91,11 +91,11 @@ for workloads whose pattern has changed. Forecasting also requires enough histor
 **Does the operator change anything without approval?** No. Nothing is applied until
 `spec.approved: true`. Auto-rollback only ever undoes a change the operator itself applied.
 
-**Does it work air-gapped?** Yes — with `llm.provider=none` (the default) there is no outbound
+**Does it work air-gapped?** Yes - with `llm.provider=none` (the default) there is no outbound
 traffic at all.
 
-**Can I run it purely as an advisor?** Yes — the default `recommend` mode never mutates a workload.
+**Can I run it purely as an advisor?** Yes - the default `recommend` mode never mutates a workload.
 Even in `apply` mode, nothing happens until you approve a recommendation. See
 [Operating §7.4](./07-operating.md).
 
-**Will two replicas double-apply?** No — leader election ensures only the leader mutates.
+**Will two replicas double-apply?** No - leader election ensures only the leader mutates.

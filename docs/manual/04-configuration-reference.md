@@ -8,10 +8,10 @@ useful for local runs and for understanding the pod spec.
 
 | Helm value | Env var | Default | Meaning |
 | --- | --- | --- | --- |
-| `mode` | `OPENHPA_MODE` | `recommend` | `recommend` (only emit `ScalingRecommendation`s, never mutate a workload — even an approved one) or `apply` (also patch approved targets). Start in `recommend`; switch to `apply` once the advice is trusted. |
+| `mode` | `OPENHPA_MODE` | `recommend` | `recommend` (only emit `ScalingRecommendation`s, never mutate a workload - even an approved one) or `apply` (also patch approved targets). Start in `recommend`; switch to `apply` once the advice is trusted. |
 | `watchNamespaces` | `OPENHPA_WATCH_NAMESPACES` | `""` (all) | Comma-separated namespaces to watch. Empty watches all namespaces. Example: `prod,api`. |
 | `intervalSeconds` | `OPENHPA_INTERVAL_SECONDS` | `300` | Seconds between reconcile ticks. Also drives the leader-lease duration (3× this value). |
-| `replicaCount` | — | `1` | Operator replicas. `2+` is safe with leader election (only the leader mutates). |
+| `replicaCount` | - | `1` | Operator replicas. `2+` is safe with leader election (only the leader mutates). |
 | `costPerReplicaUsdMonthly` | `OPENHPA_COST_PER_REPLICA_USD_MONTHLY` | `30` | Estimated monthly cost (USD) of one always-on replica, pricing the projected-savings **estimates** (see §6.2). Set it to your real per-replica node share; must be > 0. |
 
 ## 4.2 Metrics
@@ -61,17 +61,17 @@ workloads are left reactive.
 | --- | --- | --- | --- |
 | `llm.provider` | `OPENHPA_LLM_PROVIDER` | `openai` | `openai`, `anthropic`, or `none` (deterministic rules-only). |
 | `llm.model` | `OPENHPA_LLM_MODEL` | `gpt-4o-mini` | Model name passed to the provider. Any model the provider exposes works (e.g. `gpt-4o`, `claude-sonnet-4-6`). |
-| `llm.baseUrl` | `OPENHPA_LLM_BASE_URL` | `""` (provider default) | Override the API base URL — point at an in-cluster proxy, a local-model sidecar, or a mock. |
+| `llm.baseUrl` | `OPENHPA_LLM_BASE_URL` | `""` (provider default) | Override the API base URL - point at an in-cluster proxy, a local-model sidecar, or a mock. |
 | `llm.timeoutSeconds` | `OPENHPA_LLM_TIMEOUT_SECONDS` | `30` | Per-request timeout; a stalled model can't stretch a reconcile pass (a timed-out call is logged and skipped, no recommendation written). |
 | `llm.concurrency` | `OPENHPA_LLM_CONCURRENCY` | `4` | Max concurrent LLM calls during the analysis pass (values below 1 are treated as 1). |
 | `llm.analysisBudgetSeconds` | `OPENHPA_ANALYSIS_BUDGET_SECONDS` | `""` (one reconcile interval) | Time budget for the analysis pass's LLM phase. Workloads not reached before it elapses are analyzed on the next tick (the deferred count is logged). |
 | `llm.apiKey` | `OPENAI_API_KEY` *(see note)* | `""` | Your API key. Setting it makes the chart create a Secret. |
-| `llm.existingSecret` | — | `""` | Name of an existing Secret holding the key under `apiKey`, used instead of `llm.apiKey`. |
+| `llm.existingSecret` | - | `""` | Name of an existing Secret holding the key under `apiKey`, used instead of `llm.apiKey`. |
 
 > **Note.** The chart injects the key as the `OPENAI_API_KEY` environment variable sourced
-> from the Secret key `apiKey`, **for both providers** — so a single `apiKey` value is all you
+> from the Secret key `apiKey`, **for both providers** - so a single `apiKey` value is all you
 > set regardless of `llm.provider`. (For local CLI runs outside the chart, set only the env var
-> matching your provider — if both `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` are exported the
+> matching your provider - if both `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` are exported the
 > operator uses `OPENAI_API_KEY` first.) `bedrock` is planned but not yet wired.
 
 ## 4.7 Resources and service account
@@ -89,11 +89,11 @@ workloads are left reactive.
 
 The operator's run mode is the `mode` value (§4.1):
 
-- **`recommend` (default)** — a pure advisor. It watches, analyzes, and writes
+- **`recommend` (default)** - a pure advisor. It watches, analyzes, and writes
   `ScalingRecommendation`s, but **never mutates a workload**, even one whose recommendation you
   have approved. This is the safe way to start a rollout: trust the advice before granting apply.
-- **`apply`** — additionally patches approved targets, then runs the
-  probation → verify → auto-rollback safety net.
+- **`apply`** - additionally patches approved targets, then runs the
+  probation -> verify -> auto-rollback safety net.
 
 Switch with `--set mode=apply` on a `helm upgrade`. See [Operating §7.4](./07-operating.md) for
-the recommend → apply promotion path.
+the recommend -> apply promotion path.

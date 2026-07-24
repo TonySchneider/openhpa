@@ -42,7 +42,7 @@ The chart installs a `ClusterRole` granting:
 - full management of `openhpa.dev/scalingrecommendations`,
 - `coordination.k8s.io/leases` for leader election.
 
-OpenHPA needs **no access to Kubernetes Secrets** — the optional LLM key is injected as an
+OpenHPA needs **no access to Kubernetes Secrets** - the optional LLM key is injected as an
 environment variable by the pod spec, never read via the API. The exact rules and the rationale for
 each are in [Security](./08-security.md).
 
@@ -53,7 +53,7 @@ each are in [Security](./08-security.md).
 | LLM provider API (`api.openai.com` / `api.anthropic.com`) | Only with a cloud LLM provider configured. |
 | Any OpenHPA-operated endpoint | **Never.** No telemetry, no license server, no phone-home. |
 
-For an air-gapped install, the only egress to plan for is the optional LLM call — omit it
+For an air-gapped install, the only egress to plan for is the optional LLM call - omit it
 (`llm.provider=none`) and the operator needs no outbound network access.
 
 ## 2.6 Resource footprint

@@ -20,7 +20,7 @@ Useful log lines to watch for:
 | --- | --- |
 | `openhpa operator starting` | Startup; reports provider, namespaces, Prometheus, forecasting, mode. |
 | `metrics source: Prometheus history backfill` | Prometheus is wired correctly. |
-| `metrics source: HPA-status fallback` | No Prometheus URL — history rebuilds slowly. |
+| `metrics source: HPA-status fallback` | No Prometheus URL - history rebuilds slowly. |
 | `reconcile tick` | A tick ran; includes `mode=…` and `leader=…`. |
 | `created ScalingRecommendation` | A new recommendation was emitted. |
 | `applied recommendation` / `auto-reverted degraded recommendation` | Apply / rollback occurred. |
@@ -57,7 +57,7 @@ helm upgrade <release> oci://ghcr.io/tonyschneider/charts/openhpa \
 - The lease duration is 3× `intervalSeconds`. Each mutating pass is re-gated on a fresh
   leadership check and bounded by a time budget, so a replica that loses the lease stops
   mutating promptly during a failover.
-- Followers still run read-only analysis, so failover is fast — a standby is already warm.
+- Followers still run read-only analysis, so failover is fast - a standby is already warm.
 
 ## 7.3 Upgrades
 
@@ -81,7 +81,7 @@ are preserved across upgrades. The image and chart are public and free; there is
 | Mode | How to run it |
 | --- | --- |
 | **Recommend-only (default)** | `mode=recommend` (the default). The operator watches and emits recommendations but **never mutates a workload**, even an approved one. The safe way to start. |
-| **Apply** | Set `mode=apply`. The operator applies approved recommendations and runs the probation → verify → rollback net. Nothing is mutated until you approve a recommendation. |
+| **Apply** | Set `mode=apply`. The operator applies approved recommendations and runs the probation -> verify -> rollback net. Nothing is mutated until you approve a recommendation. |
 | **Rules-only (no LLM)** | Set `llm.provider=none` (the default). Analysis uses the deterministic rule engine; no external calls are made. Combine with either mode above. |
 
 Promote a rollout by switching `--set mode=apply` on a `helm upgrade` once you trust the advice. See

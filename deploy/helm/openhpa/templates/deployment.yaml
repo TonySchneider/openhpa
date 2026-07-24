@@ -109,7 +109,7 @@ spec:
             readOnlyRootFilesystem: true
             runAsNonRoot: true
             # Numeric uid/gid of the distroless `nonroot` user. Required so the kubelet can verify
-            # runAsNonRoot — a non-numeric image USER alone fails with CreateContainerConfigError.
+            # runAsNonRoot - a non-numeric image USER alone fails with CreateContainerConfigError.
             runAsUser: 65532
             runAsGroup: 65532
             capabilities:

@@ -1,4 +1,4 @@
-# Artifact Hub repository metadata — https://artifacthub.io/docs/topics/repositories/
+# Artifact Hub repository metadata - https://artifacthub.io/docs/topics/repositories/
 #
 # Published alongside the chart as an OCI artifact tagged `:artifacthub.io` by the release
 # workflow (.github/workflows/release.yml). Only the `owners` section is needed to claim

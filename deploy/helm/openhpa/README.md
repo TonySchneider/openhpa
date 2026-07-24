@@ -6,7 +6,7 @@ HorizontalPodAutoscalers and KEDA ScaledObjects, analyzes real metrics with a de
 engine, and writes recommendations you read with `kubectl`. In `apply` mode it can also apply
 approved changes behind a probation + auto-rollback safety net.
 
-**Runs entirely in your cluster.** Metrics and analysis happen locally — no data leaves your
+**Runs entirely in your cluster.** Metrics and analysis happen locally - no data leaves your
 cluster, no SaaS, no phone-home. An optional, off-by-default LLM integration (your own key) enriches
 the human-readable explanations; it is never required for a safety decision.
 

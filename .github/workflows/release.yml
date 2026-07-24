@@ -2,7 +2,7 @@ name: release
 
 # Cuts a release on a semver tag: builds the operator image for linux/amd64 + linux/arm64 on
 # native runners (Rust under QEMU is painfully slow), merges them into one multi-arch manifest,
-# pushes it to GHCR, signs the manifest digest with cosign (keyless / OIDC — no long-lived keys),
+# pushes it to GHCR, signs the manifest digest with cosign (keyless / OIDC - no long-lived keys),
 # generates + attests an SPDX SBOM, and publishes the Helm chart as an OCI artifact. Anyone can
 # verify the signature and SBOM attestation before pulling (works for air-gapped mirroring too).
 on:

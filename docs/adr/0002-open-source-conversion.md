@@ -6,7 +6,7 @@ Status: Accepted
 
 OpenHPA began as a closed-source, self-hosted operator with an offline license that gated the
 *apply* path (analysis was always unrestricted). To make the project a genuinely useful and
-trustworthy open-source tool — and a clean public artifact — the commercial layer had to go, and the
+trustworthy open-source tool - and a clean public artifact - the commercial layer had to go, and the
 public identity had to be consistent.
 
 ## Decision
@@ -16,13 +16,13 @@ implemented capability works out of the box.
 
 Concretely:
 
-- **Remove the license subsystem entirely** — offline verification, license issuance tooling,
+- **Remove the license subsystem entirely** - offline verification, license issuance tooling,
   expiry/grace, cluster limits, and feature gates. Apply is now gated **only** by the explicit
   `--mode=apply` flag plus per-recommendation human approval (the pre-existing safety gates).
 - **Drop the Kubernetes `Secrets` RBAC grant.** It existed solely to read the license Secret. The
   operator no longer reads any Secret via the Kubernetes API; the optional LLM key is injected as an
   environment variable by the pod spec.
-- **Reposition around deterministic analysis.** The rule engine — not an LLM — makes every
+- **Reposition around deterministic analysis.** The rule engine - not an LLM - makes every
   recommendation and every safety decision. The LLM is optional, off by default, and only enriches
   explanations. This is both the honest description of how the system works and the safer default.
 - **Keep the CRD-based recommendation model** (a declarative resource carrying a field-level diff)
@@ -45,7 +45,7 @@ If you are migrating from a pre-open-source build, note:
 | Lease name | `stepscale-autoscaler-leader` | `openhpa-leader` |
 | RBAC | granted `secrets: get` | no Secrets access |
 
-Because the CRD API group changed, this is a new resource type — there is no in-place upgrade from a
+Because the CRD API group changed, this is a new resource type - there is no in-place upgrade from a
 pre-open-source install; install fresh.
 
 ## Consequences

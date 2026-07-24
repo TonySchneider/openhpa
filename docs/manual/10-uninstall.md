@@ -1,7 +1,7 @@
 # 10. Uninstall
 
 Removing the operator is a Helm uninstall plus an explicit CRD cleanup. Uninstalling does
-**not** change any autoscaling configuration already applied to your workloads — your HPAs
+**not** change any autoscaling configuration already applied to your workloads - your HPAs
 and ScaledObjects keep whatever values were last set.
 
 ## 10.1 Remove the operator
@@ -43,10 +43,10 @@ kubectl delete scalingrecommendations --all -A
 
 | Item | Removed by `helm uninstall`? | Notes |
 | --- | --- | --- |
-| Operator Deployment / pods | Yes | — |
-| ServiceAccount, ClusterRole, ClusterRoleBinding | Yes | — |
-| Leader-election Lease | Yes | — |
-| Chart-created Secret (optional LLM key) | Yes | A Secret you created yourself and referenced via `existingSecret` is **not** removed — delete it manually if desired. |
+| Operator Deployment / pods | Yes | - |
+| ServiceAccount, ClusterRole, ClusterRoleBinding | Yes | - |
+| Leader-election Lease | Yes | - |
+| Chart-created Secret (optional LLM key) | Yes | A Secret you created yourself and referenced via `existingSecret` is **not** removed - delete it manually if desired. |
 | `ScalingRecommendation` CRD + resources | **No** | Remove explicitly (10.2). |
 | Applied HPA / ScaledObject changes | **No** | Your autoscalers keep their last-applied values. Revert manually if you want the pre-openhpa configuration back. |
 

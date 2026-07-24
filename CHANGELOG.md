@@ -18,7 +18,7 @@ First public open-source release of OpenHPA.
 - Apply mode with a probation window, post-apply health verification, and automatic rollback for
   HPA targets.
 - Optional, off-by-default LLM integration (OpenAI / Anthropic, bring-your-own key) that enriches
-  explanations only — never a safety decision. Configurable base URL, timeout, and concurrency.
+  explanations only - never a safety decision. Configurable base URL, timeout, and concurrency.
 - Leader election over a `coordination.k8s.io` Lease so `replicaCount: 2+` is safe.
 - Helm chart, multi-arch cosign-signed image, and an attested SPDX SBOM in the release pipeline.
 

@@ -7,13 +7,13 @@ autoscaled workloads actually behave and proposes better autoscaling configurati
 follows a deliberate, human-in-the-loop workflow:
 
 ```
-recommend  →  approve  →  apply  →  verify  →  (auto-rollback on degradation)
+recommend  ->  approve  ->  apply  ->  verify  ->  (auto-rollback on degradation)
 ```
 
 1. **Recommend.** On each reconcile tick the operator reads your HorizontalPodAutoscalers
    and the workloads behind them, builds a metric history, and runs a rule engine to detect
    optimization opportunities (idle windows, over-provisioning, scale lag, thrashing, and
-   recurring peaks). An optional LLM pass — using *your* API key — judges the candidates,
+   recurring peaks). An optional LLM pass - using *your* API key - judges the candidates,
    assigns a risk level, and writes a human-readable summary. The result is persisted as a
    `ScalingRecommendation` custom resource.
 
@@ -21,7 +21,7 @@ recommend  →  approve  →  apply  →  verify  →  (auto-rollback on degrada
    (`kubectl get scalingrecommendations`) and set `spec.approved: true`.
 
 3. **Apply.** The operator applies an approved recommendation to the live HPA or KEDA
-   ScaledObject — adjusting `minReplicas` / `maxReplicas`, the CPU target, and the
+   ScaledObject - adjusting `minReplicas` / `maxReplicas`, the CPU target, and the
    scale-down cooldown.
 
 4. **Verify and auto-rollback.** An applied change is held on **probation**. After the
@@ -88,7 +88,7 @@ status) on each run.
 | --- | --- |
 | `ScalingRecommendation` | Namespaced CR (`openhpa.dev/v1alpha1`, short name `scalerec`) holding a target reference, a config diff, a risk level, a summary, optional projected savings, and an optional predictive schedule. |
 | Approval | Human gate. The operator applies a recommendation only when `spec.approved` is `true`. |
-| Phase | The lifecycle state in `status.phase`: `pending` → `applied` → `verified`, or `rolledBack` / `degraded` / `failed`. See [Usage](./06-usage.md). |
+| Phase | The lifecycle state in `status.phase`: `pending` -> `applied` -> `verified`, or `rolledBack` / `degraded` / `failed`. See [Usage](./06-usage.md). |
 | Probation | The window after an apply during which the operator watches health before declaring a change `verified` (or reverting it). |
 | Predictive schedule | Time-based replica-floor raises emitted for workloads with a recurring peak, applied as KEDA cron triggers or operator-managed HPA floor changes. |
 | Operating mode | `recommend` (default; never mutates a workload) or `apply` (patches approved recommendations behind the probation/rollback net). |
